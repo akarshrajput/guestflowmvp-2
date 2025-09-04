@@ -49,38 +49,30 @@ export default function Home() {
         <div className="container mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <motion.div 
             className="flex items-center gap-3"
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 300 }}
+            
           >
-            <Hotel className="h-8 w-8" />
-            <span className="text-2xl font-bold">Guest Flow</span>
+            <img src="/Logo_Full.png" className='h-6' alt="" />
+            {/* <span className="text-2xl font-bold">Ella</span> */}
           </motion.div>
-          <motion.p 
-            className="text-sm text-muted-foreground hidden md:block"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            Modern hotel management made simple
-          </motion.p>
+         
         </div>
       </motion.header>
 
       {/* Main Content */}
       <main className="container mx-auto max-w-6xl px-4 py-16">
-        <motion.div 
+        {/* <motion.div 
           className="text-center mb-16"
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.2 }}
         >
           <h1 className="text-4xl font-bold mb-4">
-            Welcome to GuestFlow
+            Welcome to Ella
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Streamline your hotel operations with intelligent guest services and staff management tools
           </p>
-        </motion.div>
+        </motion.div> */}
 
         <motion.div 
           className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto"
@@ -91,14 +83,12 @@ export default function Home() {
 
           {/* Manager Access Card */}
           <motion.div
-            whileHover={{ y: -5, scale: 1.02 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
             <Card className="h-full shadow-lg border-none bg-white/70 backdrop-blur-sm">
               <CardHeader className="text-center">
                 <motion.div 
                   className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg shadow-md bg-gradient-to-br from-gray-50 to-gray-100"
-                  whileHover={{ rotate: 5 }}
                   transition={{ type: "spring", stiffness: 400 }}
                 >
                   <Shield className="h-8 w-8" />
@@ -138,10 +128,7 @@ export default function Home() {
                     <span>Room status & housekeeping</span>
                   </motion.div>
                 </div>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
+                <motion.div>
                   <Button 
                     className="w-full border-none" 
                     onClick={() => router.push('/auth/login')}
@@ -156,14 +143,12 @@ export default function Home() {
 
           {/* Guest Access Card */}
           <motion.div
-            whileHover={{ y: -5, scale: 1.02 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
             <Card className="h-full shadow-lg border-none bg-white/70 backdrop-blur-sm">
               <CardHeader className="text-center">
                 <motion.div 
                   className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg shadow-md bg-gradient-to-br from-blue-50 to-blue-100"
-                  whileHover={{ rotate: -5 }}
                   transition={{ type: "spring", stiffness: 400 }}
                 >
                   <Users className="h-8 w-8" />
@@ -191,10 +176,7 @@ export default function Home() {
                       onChange={(e) => setRoomNumber(e.target.value)}
                     />
                   </motion.div>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
+                  <motion.div>
                     <Button type="submit" className="w-full border-none">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       Access Guest Services
@@ -209,17 +191,11 @@ export default function Home() {
                   transition={{ delay: 0.8 }}
                 >
                   <div className="grid grid-cols-2 gap-4 text-center text-sm text-muted-foreground">
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 400 }}
-                    >
+                    <motion.div>
                       <MessageSquare className="mx-auto mb-1 h-4 w-4" />
                       <p>AI Assistant</p>
                     </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      transition={{ type: "spring", stiffness: 400 }}
-                    >
+                    <motion.div>
                       <Hotel className="mx-auto mb-1 h-4 w-4" />
                       <p>Room Services</p>
                     </motion.div>
@@ -240,14 +216,11 @@ export default function Home() {
       >
         <div className="container mx-auto max-w-6xl px-4 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <motion.div 
-              className="flex items-center gap-3 mb-4 md:mb-0"
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 300 }}
+            <div 
+              
             >
-              <Hotel className="h-6 w-6" />
-              <span className="text-lg font-semibold">HotelFlow</span>
-            </motion.div>
+              <img src="/Logo_Full.png" className='h-6' alt="" />
+            </div>
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} HotelFlow. Streamlining hotel operations.
             </p>
@@ -257,4 +230,3 @@ export default function Home() {
     </motion.div>
   );
 }
-

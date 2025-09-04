@@ -1,29 +1,37 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
-  Send, 
-  Bot, 
-  User, 
-  ArrowLeft, 
-  CheckCircle, 
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Send,
+  Bot,
+  User,
+  ArrowLeft,
+  CheckCircle,
   Clock,
-  Building2
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { apiClient } from '@/lib/api/client';
+  Building2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { apiClient } from "@/lib/api/client";
 
 interface Message {
   id: string;
   content: string;
-  sender: 'guest' | 'ai' | 'manager';
+  sender: "guest" | "ai" | "manager";
   senderName: string;
   timestamp: Date;
   isTyping?: boolean;
@@ -40,18 +48,20 @@ export default function GuestChatPage() {
   const router = useRouter();
   const [guestInfo, setGuestInfo] = useState<GuestInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [ticketId, setTicketId] = useState<string | null>(null);
-  const [ticketStatus, setTicketStatus] = useState<'draft' | 'submitted' | 'in_progress' | 'completed'>('draft');
+  const [ticketStatus, setTicketStatus] = useState<
+    "draft" | "submitted" | "in_progress" | "completed"
+  >("draft");
   const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Load guest info from localStorage
-    const storedGuestInfo = localStorage.getItem('guestInfo');
+    const storedGuestInfo = localStorage.getItem("guestInfo");
     if (!storedGuestInfo) {
-      router.push('/guest');
+      router.push("/guest");
       return;
     }
 
@@ -60,11 +70,11 @@ export default function GuestChatPage() {
 
     // Add welcome message from AI
     const welcomeMessage: Message = {
-      id: '1',
+      id: "1",
       content: `Hello ${parsedGuestInfo.guestName}! I'm your AI assistant. I'm here to help you with any requests or questions about your stay in Room ${parsedGuestInfo.roomNumber}. What can I assist you with today?`,
-      sender: 'ai',
-      senderName: 'AI Assistant',
-      timestamp: new Date()
+      sender: "ai",
+      senderName: "AI Assistant",
+      timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
   }, [router]);
@@ -74,7 +84,7 @@ export default function GuestChatPage() {
   }, [messages]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const sendMessage = async () => {
@@ -83,68 +93,70 @@ export default function GuestChatPage() {
     const userMessage: Message = {
       id: Date.now().toString(),
       content: newMessage,
-      sender: 'guest',
+      sender: "guest",
       senderName: guestInfo.guestName,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setNewMessage('');
+    setMessages((prev) => [...prev, userMessage]);
+    setNewMessage("");
     setIsLoading(true);
 
     // Add typing indicator
     const typingMessage: Message = {
-      id: 'typing',
-      content: 'AI is thinking...',
-      sender: 'ai',
-      senderName: 'AI Assistant',
+      id: "typing",
+      content: "AI is thinking...",
+      sender: "ai",
+      senderName: "AI Assistant",
       timestamp: new Date(),
-      isTyping: true
+      isTyping: true,
     };
-    setMessages(prev => [...prev, typingMessage]);
+    setMessages((prev) => [...prev, typingMessage]);
 
     try {
       // Send message to AI endpoint
-      const response = await apiClient.post('/chat/ai', {
+      const response = await apiClient.post("/chat/ai", {
         message: newMessage,
         guestInfo,
-        conversationHistory: messages.filter(m => !m.isTyping).map(m => ({
-          role: m.sender === 'guest' ? 'user' : 'assistant',
-          content: m.content
-        }))
+        conversationHistory: messages
+          .filter((m) => !m.isTyping)
+          .map((m) => ({
+            role: m.sender === "guest" ? "user" : "assistant",
+            content: m.content,
+          })),
       });
 
       // Remove typing indicator
-      setMessages(prev => prev.filter(m => m.id !== 'typing'));
+      setMessages((prev) => prev.filter((m) => m.id !== "typing"));
 
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         content: response.data.message,
-        sender: 'ai',
-        senderName: 'AI Assistant',
-        timestamp: new Date()
+        sender: "ai",
+        senderName: "AI Assistant",
+        timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, aiResponse]);
+      setMessages((prev) => [...prev, aiResponse]);
 
       // Check if AI suggests creating a ticket
       if (response.data.shouldCreateTicket) {
         setTimeout(() => {
           const ticketSuggestion: Message = {
             id: (Date.now() + 2).toString(),
-            content: "Would you like me to create a service request for the hotel staff to assist you with this?",
-            sender: 'ai',
-            senderName: 'AI Assistant',
-            timestamp: new Date()
+            content:
+              "Would you like me to create a service request for the hotel staff to assist you with this?",
+            sender: "ai",
+            senderName: "AI Assistant",
+            timestamp: new Date(),
           };
-          setMessages(prev => [...prev, ticketSuggestion]);
+          setMessages((prev) => [...prev, ticketSuggestion]);
         }, 1000);
       }
-
     } catch (error) {
-      console.error('Error sending message:', error);
-      setMessages(prev => prev.filter(m => m.id !== 'typing'));
-      toast.error('Failed to send message');
+      console.error("Error sending message:", error);
+      setMessages((prev) => prev.filter((m) => m.id !== "typing"));
+      toast.error("Failed to send message");
     } finally {
       setIsLoading(false);
     }
@@ -156,44 +168,74 @@ export default function GuestChatPage() {
     setIsLoading(true);
     try {
       const conversationSummary = messages
-        .filter(m => !m.isTyping)
-        .map(m => `${m.senderName}: ${m.content}`)
-        .join('\n');
+        .filter((m) => !m.isTyping)
+        .map((m) => `${m.senderName}: ${m.content}`)
+        .join("\n");
 
-      const response = await apiClient.post('/tickets/guest', {
+      const response = await apiClient.post("/tickets/guest", {
         roomNumber: guestInfo.roomNumber,
         guestInfo: {
           name: guestInfo.guestName,
           email: guestInfo.email,
-          phone: guestInfo.phone
+          phone: guestInfo.phone,
         },
-        initialMessage: conversationSummary
+        initialMessage: conversationSummary,
       });
 
-      setTicketId(response.data.data._id);
-      setTicketStatus('submitted');
+      // Check if backend says this is a greeting and no ticket should be created
+      if (response.data.isGreeting && !response.data.shouldCreateTicket) {
+        toast.info("No service request needed for greeting messages");
+        setIsTicketDialogOpen(false);
+        return;
+      }
+
+      const { data, ticketCount, categories } = response.data;
+      const tickets = Array.isArray(data) ? data : [data];
+
+      // Use the first ticket's ID for tracking (or the main ticket if single)
+      setTicketId(tickets[0]._id);
+      setTicketStatus("submitted");
       setIsTicketDialogOpen(false);
 
-      const confirmationMessage: Message = {
-        id: (Date.now() + 3).toString(),
-        content: `Great! I've created a service request (#${response.data.data._id.slice(-6)}) for you. Hotel staff will be notified and will respond shortly. You can continue chatting here, and they'll join the conversation when available.`,
-        sender: 'ai',
-        senderName: 'AI Assistant',
-        timestamp: new Date(),
-      };
+      let confirmationMessage: Message;
 
-      setMessages(prev => [...prev, confirmationMessage]);
-      toast.success('Service request created successfully!');
+      if (ticketCount > 1) {
+        const categoryList = categories
+          .map((cat: string) => cat.replace("_", " ").toUpperCase())
+          .join(", ");
+        confirmationMessage = {
+          id: (Date.now() + 3).toString(),
+          content: `Excellent! I've created ${ticketCount} service requests for you across multiple departments (${categoryList}). Each relevant team has been notified and will respond shortly. You can continue chatting here, and they'll join the conversation when available.`,
+          sender: "ai",
+          senderName: "AI Assistant",
+          timestamp: new Date(),
+        };
+      } else {
+        confirmationMessage = {
+          id: (Date.now() + 3).toString(),
+          content: `Great! I've created a service request (#${tickets[0]._id.slice(
+            -6
+          )}) for you. Hotel staff will be notified and will respond shortly. You can continue chatting here, and they'll join the conversation when available.`,
+          sender: "ai",
+          senderName: "AI Assistant",
+          timestamp: new Date(),
+        };
+      }
+
+      setMessages((prev) => [...prev, confirmationMessage]);
+      toast.success(
+        `Service request${ticketCount > 1 ? "s" : ""} created successfully!`
+      );
     } catch (error) {
-      console.error('Error creating ticket:', error);
-      toast.error('Failed to create service request. Please try again.');
+      console.error("Error creating ticket:", error);
+      toast.error("Failed to create service request. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
@@ -212,7 +254,7 @@ export default function GuestChatPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => router.push('/guest')}
+              onClick={() => router.push("/guest")}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -225,17 +267,22 @@ export default function GuestChatPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {ticketStatus !== 'draft' && (
-              <Badge variant={
-                ticketStatus === 'submitted' ? 'default' :
-                ticketStatus === 'in_progress' ? 'secondary' : 'outline'
-              }>
-                {ticketStatus === 'submitted' ? (
+            {ticketStatus !== "draft" && (
+              <Badge
+                variant={
+                  ticketStatus === "submitted"
+                    ? "default"
+                    : ticketStatus === "in_progress"
+                    ? "secondary"
+                    : "outline"
+                }
+              >
+                {ticketStatus === "submitted" ? (
                   <>
                     <Clock className="h-3 w-3 mr-1" />
                     Request Submitted
                   </>
-                ) : ticketStatus === 'in_progress' ? (
+                ) : ticketStatus === "in_progress" ? (
                   <>
                     <Clock className="h-3 w-3 mr-1" />
                     In Progress
@@ -259,13 +306,13 @@ export default function GuestChatPage() {
             <div
               key={message.id}
               className={`flex gap-3 ${
-                message.sender === 'guest' ? 'justify-end' : 'justify-start'
+                message.sender === "guest" ? "justify-end" : "justify-start"
               }`}
             >
-              {message.sender !== 'guest' && (
+              {message.sender !== "guest" && (
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>
-                    {message.sender === 'ai' ? (
+                    {message.sender === "ai" ? (
                       <Bot className="h-4 w-4" />
                     ) : (
                       <User className="h-4 w-4" />
@@ -273,16 +320,20 @@ export default function GuestChatPage() {
                   </AvatarFallback>
                 </Avatar>
               )}
-              
-              <div className={`max-w-[80%] ${message.sender === 'guest' ? 'order-first' : ''}`}>
+
+              <div
+                className={`max-w-[80%] ${
+                  message.sender === "guest" ? "order-first" : ""
+                }`}
+              >
                 <div
                   className={`rounded-lg p-3 ${
-                    message.sender === 'guest'
-                      ? 'bg-primary text-primary-foreground'
-                      : message.sender === 'ai'
-                      ? 'bg-muted'
-                      : 'bg-accent'
-                  } ${message.isTyping ? 'animate-pulse' : ''}`}
+                    message.sender === "guest"
+                      ? "bg-primary text-primary-foreground"
+                      : message.sender === "ai"
+                      ? "bg-muted"
+                      : "bg-accent"
+                  } ${message.isTyping ? "animate-pulse" : ""}`}
                 >
                   <p className="text-sm">{message.content}</p>
                 </div>
@@ -292,7 +343,7 @@ export default function GuestChatPage() {
                 </div>
               </div>
 
-              {message.sender === 'guest' && (
+              {message.sender === "guest" && (
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>
                     {guestInfo.guestName.charAt(0).toUpperCase()}
@@ -308,9 +359,12 @@ export default function GuestChatPage() {
       {/* Input Area */}
       <div className="bg-card border-t p-4">
         <div className="max-w-4xl mx-auto">
-          {ticketStatus === 'draft' && (
+          {ticketStatus === "draft" && (
             <div className="mb-3">
-              <Dialog open={isTicketDialogOpen} onOpenChange={setIsTicketDialogOpen}>
+              <Dialog
+                open={isTicketDialogOpen}
+                onOpenChange={setIsTicketDialogOpen}
+              >
                 <DialogTrigger asChild>
                   <Button
                     disabled={isLoading || messages.length <= 1}
@@ -324,30 +378,38 @@ export default function GuestChatPage() {
                   <DialogHeader>
                     <DialogTitle>Create Service Request</DialogTitle>
                     <DialogDescription>
-                      This will create a service request for hotel staff based on your conversation. 
-                      Staff will be notified and can join this chat to assist you.
+                      This will create a service request for hotel staff based
+                      on your conversation. Staff will be notified and can join
+                      this chat to assist you.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="py-4">
                     <p className="text-sm text-muted-foreground">
-                      <strong>Room:</strong> {guestInfo.roomNumber}<br/>
-                      <strong>Guest:</strong> {guestInfo.guestName}<br/>
-                      <strong>Messages:</strong> {messages.filter(m => !m.isTyping).length} messages will be included
+                      <strong>Room:</strong> {guestInfo.roomNumber}
+                      <br />
+                      <strong>Guest:</strong> {guestInfo.guestName}
+                      <br />
+                      <strong>Messages:</strong>{" "}
+                      {messages.filter((m) => !m.isTyping).length} messages will
+                      be included
                     </p>
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsTicketDialogOpen(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsTicketDialogOpen(false)}
+                    >
                       Cancel
                     </Button>
                     <Button onClick={createTicket} disabled={isLoading}>
-                      {isLoading ? 'Creating...' : 'Create Request'}
+                      {isLoading ? "Creating..." : "Create Request"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
           )}
-          
+
           <div className="flex gap-2">
             <Input
               value={newMessage}

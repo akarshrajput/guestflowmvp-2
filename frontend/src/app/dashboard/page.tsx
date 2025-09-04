@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label as UILabel } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -57,6 +57,63 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import io from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
+import { TrendingUp } from "lucide-react";
+import { Pie, PieChart, Label } from "recharts";
+
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+
+// --- Chart Color Customization (Grayscale) ---
+// Adjusted to grayscale palette with good contrast
+const CHART_COLORS = {
+  raised: "#111827", // Gray 900 - darkest
+  in_progress: "#6B7280", // Gray 500 - medium
+  completed: "#D1D5DB", // Gray 300 - light
+};
+
+// Chart data will be generated dynamically based on ticket stats
+const getChartData = (stats: DashboardStats) => [
+  {
+    status: "raised",
+    count: stats.raisedTickets,
+    fill: CHART_COLORS.raised,
+    label: "New Tickets",
+  },
+  {
+    status: "in_progress",
+    count: stats.inProgressTickets,
+    fill: CHART_COLORS.in_progress,
+    label: "In Progress",
+  },
+  {
+    status: "completed",
+    count: stats.completedTickets,
+    fill: CHART_COLORS.completed,
+    label: "Completed",
+  },
+];
+
+const chartConfig = {
+  count: {
+    label: "Tickets",
+  },
+  raised: {
+    label: "New Tickets",
+    color: CHART_COLORS.raised,
+  },
+  in_progress: {
+    label: "In Progress",
+    color: CHART_COLORS.in_progress,
+  },
+  completed: {
+    label: "Completed",
+    color: CHART_COLORS.completed,
+  },
+} satisfies ChartConfig;
 
 interface Message {
   _id: string;
@@ -104,6 +161,25 @@ const getCategoryColor = (category?: Ticket["category"]) => {
     default:
       return "bg-gray-100 text-gray-800";
   }
+};
+
+// Group tickets by guest request (same guest, room, and similar creation time)
+const groupRelatedTickets = (tickets: Ticket[]) => {
+  const groups: Map<string, Ticket[]> = new Map();
+
+  tickets.forEach((ticket) => {
+    // Create a key based on guest name, room number, and creation time (within 5 minutes)
+    const createdTime = new Date(ticket.createdAt);
+    const timeSlot = Math.floor(createdTime.getTime() / (5 * 60 * 1000)); // 5-minute slots
+    const groupKey = `${ticket.guestInfo.name}-${ticket.roomNumber}-${timeSlot}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, []);
+    }
+    groups.get(groupKey)!.push(ticket);
+  });
+
+  return Array.from(groups.values());
 };
 
 // Get single category from ticket (no inference needed - AI already classified)
@@ -488,6 +564,16 @@ export default function DashboardPage() {
   const getFilteredTickets = (status: string) => {
     let filtered = tickets[status] || [];
 
+    // Filter out greeting messages or system messages that shouldn't create tickets
+    filtered = filtered.filter((ticket) => {
+      const firstMessage = ticket.messages?.[0]?.content?.toLowerCase() || "";
+      const isGreeting =
+        /^(hi|hello|hey|good morning|good afternoon|good evening|greetings|how are you|nice to meet you)\s*[!.]?$/i.test(
+          firstMessage.trim()
+        );
+      return !isGreeting;
+    });
+
     if (searchQuery) {
       filtered = filtered.filter(
         (ticket) =>
@@ -554,197 +640,286 @@ export default function DashboardPage() {
     );
   }
 
+  const totalTickets =
+    stats.raisedTickets + stats.inProgressTickets + stats.completedTickets;
+
+  const completionRate =
+    totalTickets > 0 ? (stats.completedTickets / totalTickets) * 100 : 0;
+
+  let rateColor = "text-red-500"; // default red
+  if (completionRate >= 70) {
+    rateColor = "text-green-500"; // high performance
+  } else if (completionRate >= 40) {
+    rateColor = "text-yellow-500"; // medium
+  }
+
   return (
-    <motion.div 
-      className="min-h-screen bg-background"
+    <motion.div
+      className="min-h-screen bg-white"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
       <div className="container mx-auto px-6 py-8 space-y-8">
         {/* Enhanced Header */}
-        <motion.div 
-          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6"
+        <motion.div
+          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6"
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground">
-              Service Dashboard
+            <h1 className="text-4xl font-semibold tracking-tighter text-foreground">
+              Overview
             </h1>
-            <p className="text-muted-foreground text-lg">
-              Manage guest requests and hotel operations
-            </p>
+          </div>
+
+          {/* Search and Room Filter */}
+          <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 items-center justify-center">
+            <div className="relative flex-1 lg:flex-none lg:w-80 focus:ring-0 rounded-full py-2">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search tickets by guest name, room number, or message content..."
+                className="pl-10 h-11 bg-transparent border-none focus:ring-0 focus:ring-offset-0"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Select
+                value={filterRoom || "all"}
+                onValueChange={(value) =>
+                  setFilterRoom(value === "all" ? null : value)
+                }
+              >
+                <SelectTrigger className="w-full sm:w-[160px] h-11 bg-gray-50 rounded-lg border-none">
+                  <SelectValue placeholder="Room" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Rooms</SelectItem>
+                  {rooms.map((room) => (
+                    <SelectItem key={room._id} value={room.number}>
+                      Room {room.number}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(filterRoom || searchQuery) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setFilterRoom(null);
+                    setSearchQuery("");
+                  }}
+                  className="h-11 border-none bg-gray-50 rounded-lg"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
           </div>
         </motion.div>
 
         {/* Enhanced Stats Cards */}
-        <motion.div 
-          className="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
+        <motion.div
+          className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2"
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, delay: 0.2 }}
         >
-          <Card className="shadow-lg border-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6">
+            <Card className="bg-[#1f1e24] border border-[#e7e7e7] h-fit pb-8">
+              <CardHeader className="px-4 pt-4">
+                <CardTitle className="text-sm font-medium text-white">
+                  <div className="text-3xl sm:text-4xl md:text-5xl lg:text-8xl mx-auto text-center font-bold text-white tracking-tighter">
+                    {stats.raisedTickets +
+                      stats.inProgressTickets +
+                      stats.completedTickets}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 text-white text-center font-semibold text-3xl tracking-tight">
                 Total Tickets
+              </CardContent>
+            </Card>
+
+            <Card className="border border-[#e7e7e7] h-fit pb-8">
+              <CardHeader className="px-4 pt-4">
+                <CardTitle className="text-sm font-medium">
+                  <div className="text-3xl sm:text-4xl md:text-5xl lg:text-8xl mx-auto text-center font-bold text-foreground tracking-tighter">
+                    {stats.raisedTickets}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 text-foreground text-center font-semibold text-3xl tracking-tight">
+                New Tickets
+              </CardContent>
+            </Card>
+
+            <Card className="border border-[#e7e7e7] h-fit pb-8">
+              <CardHeader className="px-4 pt-4">
+                <CardTitle className="text-sm font-medium">
+                  <div className="text-3xl sm:text-4xl md:text-5xl lg:text-8xl mx-auto text-center font-bold text-foreground tracking-tighter">
+                    {stats.inProgressTickets}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 text-foreground text-center font-semibold text-3xl tracking-tight">
+                In Progress
+              </CardContent>
+            </Card>
+
+            <Card className="border border-[#e7e7e7] h-fit pb-8">
+              <CardHeader className="px-4 pt-4">
+                <CardTitle className="text-sm font-medium">
+                  <div className="text-3xl sm:text-4xl md:text-5xl lg:text-8xl mx-auto text-center font-bold text-foreground tracking-tighter">
+                    {stats.completedTickets}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 text-foreground text-center font-semibold text-3xl tracking-tight">
+                Completed
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="flex flex-col bg-white border border-[#e7e7e7]">
+            <CardHeader className="items-center pb-2 px-4 pt-4">
+              <CardTitle className="text-lg font-semibold">
+                Ticket Distribution
               </CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <MessageSquare className="h-4 w-4 text-primary" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">
-                {stats.raisedTickets +
-                  stats.inProgressTickets +
-                  stats.completedTickets}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                All time requests
+              <p className="text-sm text-muted-foreground">
+                Completion rate:{" "}
+                <span className={rateColor}>{completionRate.toFixed(2)}%</span>
               </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium">
-                New Requests
-              </CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Clock className="h-4 w-4 text-primary" />
-              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">
-                {stats.raisedTickets}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Awaiting response
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Clock className="h-4 w-4 text-primary" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">
-                {stats.inProgressTickets}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Being handled
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CheckCircle className="h-4 w-4 text-primary" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">
-                {stats.completedTickets}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Resolved today
-              </p>
+            <CardContent className="flex-1 pb-4 px-4">
+              <ChartContainer
+                config={chartConfig}
+                className="mx-auto aspect-square max-h-[280px] sm:max-h-[320px]"
+              >
+                <PieChart>
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent hideLabel />}
+                  />
+                  <Pie
+                    data={getChartData(stats)}
+                    dataKey="count"
+                    nameKey="status"
+                    innerRadius={70}
+                    strokeWidth={5}
+                  >
+                    <Label
+                      content={(props: any) => {
+                        const totalTickets =
+                          stats.raisedTickets +
+                          stats.inProgressTickets +
+                          stats.completedTickets;
+                        const { viewBox } = props;
+                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                          return (
+                            <text
+                              x={viewBox.cx}
+                              y={viewBox.cy}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                            >
+                              <tspan
+                                x={viewBox.cx}
+                                y={viewBox.cy}
+                                className="fill-foreground text-3xl font-bold"
+                              >
+                                {totalTickets.toLocaleString()}
+                              </tspan>
+                              <tspan
+                                x={viewBox.cx}
+                                y={(viewBox.cy || 0) + 24}
+                                className="fill-muted-foreground"
+                              >
+                                Total Tickets
+                              </tspan>
+                            </text>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Enhanced Filters */}
+        {/* Category Filters */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
-          <Card className="shadow-lg border-none">
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search tickets by guest name, room number, or message content..."
-                  className="pl-10 h-11 border-none"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Select
-                  value={filterRoom || "all"}
-                  onValueChange={(value) =>
-                    setFilterRoom(value === "all" ? null : value)
-                  }
+          <div className=" rounded-md">
+            <div className="p-4">
+              {/* Tabs */}
+              <div className="flex flex-wrap gap-6 relative border-b border-gray-200">
+                {/* All tab */}
+                <button
+                  onClick={() => handleSelectCategory("all")}
+                  className={`relative pb-2 text-sm font-medium ${
+                    selectedCategories.length === 0
+                      ? "text-black font-semibold"
+                      : "text-gray-400 hover:text-black"
+                  }`}
                 >
-                  <SelectTrigger className="w-full sm:w-[160px] h-11">
-                    <SelectValue placeholder="Room" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Rooms</SelectItem>
-                    {rooms.map((room) => (
-                      <SelectItem key={room._id} value={room.number}>
-                        Room {room.number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {(filterRoom || searchQuery) && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setFilterRoom(null);
-                      setSearchQuery("");
-                    }}
-                    className="h-11 border-none"
-                  >
-                    Clear Filters
-                  </Button>
-                )}
-              </div>
-            </div>
+                  All
+                  {selectedCategories.length === 0 && (
+                    <motion.div
+                      layoutId="underline"
+                      className="absolute left-0 right-0 -bottom-[1px] h-[2px] bg-black"
+                      transition={{
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 30,
+                      }}
+                    />
+                  )}
+                </button>
 
-            {/* Department (Category) quick filters */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                variant={
-                  selectedCategories.length === 0
-                    ? "default"
-                    : "outline"
-                }
-                className="h-9 border-none"
-                onClick={() => handleSelectCategory("all")}
-              >
-                All
-              </Button>
-              {allCategories.map((cat) => (
-                <Button
-                  key={cat}
-                  variant={
+                {/* Other tabs */}
+                {allCategories.map((cat) => {
+                  const isActive =
                     selectedCategories.length === 1 &&
-                    selectedCategories[0] === cat
-                      ? "default"
-                      : "outline"
-                  }
-                  className="h-9 border-none"
-                  onClick={() => handleSelectCategory(cat)}
-                >
-                  {getCategoryLabel(cat)}
-                </Button>
-              ))}
+                    selectedCategories[0] === cat;
+
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => handleSelectCategory(cat)}
+                      className={`relative pb-2 text-sm font-medium ${
+                        isActive
+                          ? "text-black font-semibold"
+                          : "text-gray-400 hover:text-black"
+                      }`}
+                    >
+                      {getCategoryLabel(cat)}
+                      {isActive && (
+                        <motion.div
+                          layoutId="underline"
+                          className="absolute left-0 right-0 -bottom-[1px] h-[2px] bg-black"
+                          transition={{
+                            type: "spring",
+                            stiffness: 500,
+                            damping: 30,
+                          }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
         </motion.div>
 
         {/* Enhanced Kanban Board */}
@@ -758,20 +933,15 @@ export default function DashboardPage() {
             {/* New Requests Column */}
             <DroppableColumn id="raised">
               <Card className="h-full shadow-lg border-none">
-                <CardHeader className="pb-4">
+                <CardHeader className="bg-[#1f1e24] rounded-t-md">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-3 w-3 rounded-full bg-primary"></div>
-                      <CardTitle className="text-lg font-semibold text-foreground">
-                        New Requests
+                      
+                      <CardTitle className="text-2xl font-semibold text-white p-5">
+                        New Tickets
                       </CardTitle>
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className="bg-primary/10 text-primary border-primary/20"
-                    >
-                      {stats.raisedTickets}
-                    </Badge>
+                    
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-full overflow-y-auto p-3">
@@ -784,6 +954,7 @@ export default function DashboardPage() {
                         <DraggableTicketCard
                           key={ticket._id}
                           ticket={ticket}
+                          allTickets={Object.values(tickets).flat()}
                           onClick={() => setSelectedTicket(ticket)}
                         />
                       ))}
@@ -796,20 +967,15 @@ export default function DashboardPage() {
             {/* In Progress Column */}
             <DroppableColumn id="in_progress">
               <Card className="h-full shadow-lg border-none">
-                <CardHeader className="pb-4">
+              <CardHeader className="bg-[#1f1e24] rounded-t-md">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-3 w-3 rounded-full bg-primary"></div>
-                      <CardTitle className="text-lg font-semibold text-foreground">
+                      
+                      <CardTitle className="text-2xl font-semibold text-white p-5">
                         In Progress
                       </CardTitle>
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className="bg-primary/10 text-primary border-primary/20"
-                    >
-                      {stats.inProgressTickets}
-                    </Badge>
+                    
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-[calc(100vh-400px)] overflow-y-auto p-3">
@@ -822,6 +988,7 @@ export default function DashboardPage() {
                         <DraggableTicketCard
                           key={ticket._id}
                           ticket={ticket}
+                          allTickets={Object.values(tickets).flat()}
                           onClick={() => setSelectedTicket(ticket)}
                         />
                       ))}
@@ -834,20 +1001,15 @@ export default function DashboardPage() {
             {/* Completed Column */}
             <DroppableColumn id="completed">
               <Card className="h-full shadow-lg border-none">
-                <CardHeader className="pb-4">
+              <CardHeader className="bg-[#1f1e24] rounded-t-md">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-3 w-3 rounded-full bg-primary"></div>
-                      <CardTitle className="text-lg font-semibold text-foreground">
+                      
+                      <CardTitle className="text-2xl font-semibold text-white p-5">
                         Completed
                       </CardTitle>
                     </div>
-                    <Badge
-                      variant="secondary"
-                      className="bg-primary/10 text-primary border-primary/20"
-                    >
-                      {stats.completedTickets}
-                    </Badge>
+                    
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-[calc(100vh-400px)] overflow-y-auto p-3">
@@ -860,6 +1022,7 @@ export default function DashboardPage() {
                         <DraggableTicketCard
                           key={ticket._id}
                           ticket={ticket}
+                          allTickets={Object.values(tickets).flat()}
                           onClick={() => setSelectedTicket(ticket)}
                         />
                       ))}
@@ -886,9 +1049,13 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge
                       variant="secondary"
-                      className={`text-xs ${getCategoryColor(getTicketCategory(activeTicket))}`}
+                      className={`text-xs ${getCategoryColor(
+                        getTicketCategory(activeTicket)
+                      )}`}
                     >
-                      {getTicketCategory(activeTicket)?.replace("_", " ").toUpperCase()}
+                      {getTicketCategory(activeTicket)
+                        ?.replace("_", " ")
+                        .toUpperCase()}
                     </Badge>
                   </div>
                 </div>
@@ -919,6 +1086,62 @@ export default function DashboardPage() {
                       Room {selectedTicket.roomNumber} •{" "}
                       {selectedTicket.guestInfo.name}
                     </p>
+                    {(() => {
+                      // Find related tickets
+                      const allTicketsFlat = Object.values(tickets).flat();
+                      const relatedTickets = allTicketsFlat.filter(
+                        (t: Ticket) => {
+                          if (t._id === selectedTicket._id) return true;
+                          if (
+                            t.guestInfo.name !== selectedTicket.guestInfo.name
+                          )
+                            return false;
+                          if (t.roomNumber !== selectedTicket.roomNumber)
+                            return false;
+
+                          const timeDiff = Math.abs(
+                            new Date(t.createdAt).getTime() -
+                              new Date(selectedTicket.createdAt).getTime()
+                          );
+                          return timeDiff <= 5 * 60 * 1000; // 5 minutes
+                        }
+                      );
+
+                      const allCategories = [
+                        ...new Set(
+                          relatedTickets.map((t: Ticket) =>
+                            getTicketCategory(t)
+                          )
+                        ),
+                      ];
+                      const isMultiCategory = allCategories.length > 1;
+
+                      if (isMultiCategory) {
+                        return (
+                          <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                            <p className="text-xs text-blue-700 font-medium mb-1">
+                              🔗 Multi-service request
+                            </p>
+                            <div className="flex gap-1 flex-wrap">
+                              {allCategories.map((category) => (
+                                <span
+                                  key={category}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(
+                                    category
+                                  )}`}
+                                >
+                                  {getCategoryLabel(category)}
+                                </span>
+                              ))}
+                            </div>
+                            <p className="text-xs text-blue-600 mt-1">
+                              {relatedTickets.length} related tickets created
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     <Select
@@ -1104,9 +1327,13 @@ export default function DashboardPage() {
                     <div className="mb-2">
                       <Badge
                         variant="secondary"
-                        className={`text-xs ${getCategoryColor(getTicketCategory(selectedTicket))}`}
+                        className={`text-xs ${getCategoryColor(
+                          getTicketCategory(selectedTicket)
+                        )}`}
                       >
-                        {getTicketCategory(selectedTicket)?.replace("_", " ").toUpperCase()}
+                        {getTicketCategory(selectedTicket)
+                          ?.replace("_", " ")
+                          .toUpperCase()}
                       </Badge>
                     </div>
                     <div className="flex gap-2">
@@ -1203,9 +1430,11 @@ function DroppableColumn({
 function DraggableTicketCard({
   ticket,
   onClick,
+  allTickets,
 }: {
   ticket: Ticket;
   onClick: () => void;
+  allTickets?: Ticket[];
 }) {
   const {
     attributes,
@@ -1222,6 +1451,9 @@ function DraggableTicketCard({
     opacity: isDragging ? 0.8 : 1,
     zIndex: isDragging ? 1000 : "auto",
   };
+
+  // Since each ticket now has only one category, no need to group
+  const ticketCategory = getTicketCategory(ticket);
 
   return (
     <div
@@ -1243,13 +1475,13 @@ function DraggableTicketCard({
             {ticket.subject || "Service Request"}
           </p>
         </div>
-        <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex items-center gap-1">
           <span
             className={`px-2 py-0.5 rounded text-[10px] font-medium ${getCategoryColor(
-              getTicketCategory(ticket)
+              ticketCategory
             )}`}
           >
-            {getCategoryLabel(getTicketCategory(ticket))}
+            {getCategoryLabel(ticketCategory)}
           </span>
         </div>
       </div>
