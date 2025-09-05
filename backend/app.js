@@ -35,7 +35,8 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:3001',
       'https://hotelflow-frontend-three.vercel.app',
-      'https://hotelflow-frontend-three.vercel.app'
+      'https://hotelflow-frontend-three.vercel.app',
+      'https://guestflowmvp-2.vercel.app'
     ];
     
     // Check if origin is allowed
