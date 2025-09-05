@@ -1,0 +1,16 @@
+[build]
+  command = "npm install"
+  functions = "netlify/functions"
+  publish = "."
+
+[dev]
+  command = "npm run dev"
+  port = 10000
+  targetPort = 10000
+  publish = "."
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/server"
+  status = 200
+  force = true

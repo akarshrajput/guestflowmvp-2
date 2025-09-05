@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+.git
+.gitignore
+.vscode/
+.idea/
+*.log
+coverage/
+__tests__/
+*.test.js
