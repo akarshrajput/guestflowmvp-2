@@ -936,12 +936,10 @@ export default function DashboardPage() {
                 <CardHeader className="bg-[#1f1e24] rounded-t-md">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      
                       <CardTitle className="text-2xl font-semibold text-white p-5">
                         New Tickets
                       </CardTitle>
                     </div>
-                    
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-full overflow-y-auto p-3">
@@ -967,15 +965,13 @@ export default function DashboardPage() {
             {/* In Progress Column */}
             <DroppableColumn id="in_progress">
               <Card className="h-full shadow-lg border-none">
-              <CardHeader className="bg-[#1f1e24] rounded-t-md">
+                <CardHeader className="bg-[#1f1e24] rounded-t-md">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      
                       <CardTitle className="text-2xl font-semibold text-white p-5">
                         In Progress
                       </CardTitle>
                     </div>
-                    
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-[calc(100vh-400px)] overflow-y-auto p-3">
@@ -1001,15 +997,13 @@ export default function DashboardPage() {
             {/* Completed Column */}
             <DroppableColumn id="completed">
               <Card className="h-full shadow-lg border-none">
-              <CardHeader className="bg-[#1f1e24] rounded-t-md">
+                <CardHeader className="bg-[#1f1e24] rounded-t-md">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      
                       <CardTitle className="text-2xl font-semibold text-white p-5">
                         Completed
                       </CardTitle>
                     </div>
-                    
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 h-[calc(100vh-400px)] overflow-y-auto p-3">
