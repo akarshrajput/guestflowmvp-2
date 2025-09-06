@@ -35,8 +35,13 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:3001',
       'https://hotelflow-frontend-three.vercel.app',
-      'https://hotelflow-frontend-three.vercel.app'
+      'https://ellabot.vercel.app'  // Add your actual frontend domain
     ];
+    
+    // In production, also allow any Vercel deployment for flexibility
+    if (process.env.NODE_ENV === 'production' && origin.includes('.vercel.app')) {
+      return callback(null, true);
+    }
     
     // Check if origin is allowed
     if (allowedOrigins.indexOf(origin) !== -1) {
