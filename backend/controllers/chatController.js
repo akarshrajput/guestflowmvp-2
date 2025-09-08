@@ -57,19 +57,22 @@ exports.chatWithAI = async (req, res) => {
       guestInfo.roomNumber
     );
 
-    // Simple response logic based on classification
-    let aiResponse = "I'll help you with that right away!";
+    // Use the reply field from the API response, fallback to default if not available
+    let aiResponse = classification.reply || "I'll help you with that right away!";
 
-    if (!classification.should_create_ticket) {
-      aiResponse = "Hello! How can I assist you today?";
-    } else if (
-      classification.categories &&
-      classification.categories.length > 0
-    ) {
-      const categoryNames = classification.categories
-        .map((cat) => cat.category)
-        .join(" and ");
-      aiResponse = `I'll handle your ${categoryNames} request immediately!`;
+    // If no reply field, use simple response logic based on classification
+    if (!classification.reply) {
+      if (!classification.should_create_ticket) {
+        aiResponse = "Hello! How can I assist you today?";
+      } else if (
+        classification.categories &&
+        classification.categories.length > 0
+      ) {
+        const categoryNames = classification.categories
+          .map((cat) => cat.category)
+          .join(" and ");
+        aiResponse = `I'll handle your ${categoryNames} request immediately!`;
+      }
     }
 
     res.json({
